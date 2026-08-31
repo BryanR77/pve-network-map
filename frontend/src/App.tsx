@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ReactFlow, Background, Controls, MiniMap, type Node } from "@xyflow/react";
+import { useEffect, useMemo, useState } from "react";
+import { ReactFlow, ReactFlowProvider, useReactFlow, Background, Controls, MiniMap, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useClusters } from "./hooks/useClusters";
 import { useTopologySocket } from "./hooks/useTopologySocket";
@@ -12,11 +12,31 @@ import type { TopoNode } from "./types";
 
 const edgeTypes = { routed: RoutedEdge };
 
+/** ReactFlow only auto-fits the viewport once, the first time nodes are measured — it
+ * doesn't refit just because the nodes/edges props change later. Since <ReactFlow> stays
+ * mounted across cluster switches, without this the camera stays framed on whatever the
+ * previously-selected cluster's graph looked like. Fires once per cluster as soon as that
+ * cluster's data has actually loaded (not on every routine live-update poll, which would
+ * otherwise reset the user's pan/zoom every time anything on the graph changes). */
+function FitViewOnClusterChange({ clusterId, ready }: { clusterId: string | null; ready: boolean }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (!ready) return;
+    const raf = requestAnimationFrame(() => fitView({ padding: 0.1 }));
+    return () => cancelAnimationFrame(raf);
+  }, [clusterId, ready, fitView]);
+  return null;
+}
+
 export default function App() {
   const { clusters, selectedId: clusterId, select: selectCluster } = useClusters();
   const { topology, status } = useTopologySocket(clusterId);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Node ids aren't namespaced per cluster, so a stale selection from the previous
+  // cluster could otherwise coincidentally match a node in the new one.
+  useEffect(() => setSelectedId(null), [clusterId]);
 
   const layout = useMemo(() => {
     if (!topology) return { nodes: [] as Node[], edges: [] };
@@ -108,30 +128,33 @@ export default function App() {
       </div>
 
       <div style={{ position: "relative", flex: 1 }}>
-        <ReactFlow
-          nodes={displayNodes}
-          edges={layout.edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodeClick={(_, node) => {
-            if (node.type !== "hostRegion") setSelectedId(node.id);
-          }}
-          onPaneClick={() => setSelectedId(null)}
-          fitView
-          minZoom={0.1}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background />
-          <Controls />
-          <MiniMap
-            pannable
-            zoomable
-            nodeColor={(n) => (n.type && n.type in KIND_COLOR ? KIND_COLOR[n.type as keyof typeof KIND_COLOR] : "#3a3f4b")}
-            nodeStrokeWidth={0}
-            maskColor="rgba(255, 255, 255, 0.08)"
-            style={{ backgroundColor: "var(--panel-bg)" }}
-          />
-        </ReactFlow>
+        <ReactFlowProvider>
+          <ReactFlow
+            nodes={displayNodes}
+            edges={layout.edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodeClick={(_, node) => {
+              if (node.type !== "hostRegion") setSelectedId(node.id);
+            }}
+            onPaneClick={() => setSelectedId(null)}
+            fitView
+            minZoom={0.1}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background />
+            <Controls />
+            <MiniMap
+              pannable
+              zoomable
+              nodeColor={(n) => (n.type && n.type in KIND_COLOR ? KIND_COLOR[n.type as keyof typeof KIND_COLOR] : "#3a3f4b")}
+              nodeStrokeWidth={0}
+              maskColor="rgba(255, 255, 255, 0.08)"
+              style={{ backgroundColor: "var(--panel-bg)" }}
+            />
+          </ReactFlow>
+          <FitViewOnClusterChange clusterId={clusterId} ready={!!topology} />
+        </ReactFlowProvider>
         {selectedNode && <DetailPanel node={selectedNode} onClose={() => setSelectedId(null)} />}
         {!topology && (
           <div
