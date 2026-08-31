@@ -3,19 +3,22 @@ import type { Topology } from "../types";
 
 export type ConnectionStatus = "connecting" | "open" | "closed";
 
-export function useTopologySocket() {
+export function useTopologySocket(clusterId: string | null) {
   const [topology, setTopology] = useState<Topology | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const retryDelay = useRef(1000);
 
   useEffect(() => {
+    setTopology(null);
+    if (!clusterId) return;
+
     let cancelled = false;
     let socket: WebSocket | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Prime the view with a normal fetch so something renders before the
     // socket handshake completes.
-    fetch("/api/topology")
+    fetch(`/api/topology?cluster=${encodeURIComponent(clusterId)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled && data) setTopology(data);
@@ -26,7 +29,7 @@ export function useTopologySocket() {
       if (cancelled) return;
       setStatus("connecting");
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      socket = new WebSocket(`${protocol}//${window.location.host}/ws/topology`);
+      socket = new WebSocket(`${protocol}//${window.location.host}/ws/topology/${encodeURIComponent(clusterId)}`);
 
       socket.onopen = () => {
         retryDelay.current = 1000;
@@ -57,7 +60,7 @@ export function useTopologySocket() {
       if (retryTimer) clearTimeout(retryTimer);
       socket?.close();
     };
-  }, []);
+  }, [clusterId]);
 
   return { topology, status };
 }

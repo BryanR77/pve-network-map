@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx
 
-from .config import settings
+from .config import ClusterConfig
 
 logger = logging.getLogger("pve_client")
 
@@ -11,13 +11,13 @@ logger = logging.getLogger("pve_client")
 class PveClient:
     """Thin async wrapper over the subset of the Proxmox VE REST API this app needs."""
 
-    def __init__(self) -> None:
+    def __init__(self, cluster: ClusterConfig) -> None:
         self._client = httpx.AsyncClient(
-            base_url=f"https://{settings.pve_host}:8006/api2/json",
+            base_url=f"https://{cluster.host}:8006/api2/json",
             headers={
-                "Authorization": f"PVEAPIToken={settings.pve_token_id}={settings.pve_token_secret}"
+                "Authorization": f"PVEAPIToken={cluster.token_id}={cluster.token_secret}"
             },
-            verify=settings.pve_verify_ssl,
+            verify=cluster.verify_ssl,
             timeout=15.0,
         )
 

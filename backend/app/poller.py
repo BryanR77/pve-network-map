@@ -1,7 +1,6 @@
 import asyncio
 import logging
 
-from .config import settings
 from .models import Topology
 from .pve_client import PveClient
 from .topology import build_topology
@@ -11,9 +10,10 @@ logger = logging.getLogger("poller")
 
 
 class TopologyPoller:
-    def __init__(self, client: PveClient, manager: ConnectionManager) -> None:
+    def __init__(self, client: PveClient, manager: ConnectionManager, poll_interval_seconds: float) -> None:
         self._client = client
         self._manager = manager
+        self._poll_interval_seconds = poll_interval_seconds
         self.latest: Topology | None = None
         self._last_hash: int | None = None
         self._task: asyncio.Task | None = None
@@ -33,7 +33,7 @@ class TopologyPoller:
                 await self.poll_once()
             except Exception:
                 logger.exception("poll cycle failed")
-            await asyncio.sleep(settings.poll_interval_seconds)
+            await asyncio.sleep(self._poll_interval_seconds)
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run())

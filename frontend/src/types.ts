@@ -1,5 +1,10 @@
 export type NodeKind = "host" | "nic" | "bond" | "vlan" | "bridge" | "vnic" | "guest";
 
+export interface ClusterSummary {
+  id: string;
+  name: string;
+}
+
 export interface TopoNode {
   id: string;
   kind: NodeKind;

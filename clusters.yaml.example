@@ -1,0 +1,18 @@
+# One entry per Proxmox VE cluster to monitor. Copy this file to clusters.yaml and fill
+# it in — clusters.yaml is gitignored since it holds API token secrets.
+#
+# The token only needs read access — an API token scoped to the PVEAuditor role is
+# sufficient, since this app never writes anything to Proxmox.
+clusters:
+  - id: home # short slug, used in URLs and remembered as your UI selection
+    name: Home Lab # optional, defaults to id — shown in the cluster selector
+    host: host-or-ip
+    token_id: network-map@pve!api
+    token_secret: replace-with-your-token-secret
+    verify_ssl: false
+    # poll_interval_seconds: 30  # optional per-cluster override of POLL_INTERVAL_SECONDS
+
+  - id: office
+    host: another-host-or-ip
+    token_id: network-map@pve!api
+    token_secret: replace-with-your-token-secret

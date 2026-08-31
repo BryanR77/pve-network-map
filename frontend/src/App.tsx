@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ReactFlow, Background, Controls, MiniMap, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { useClusters } from "./hooks/useClusters";
 import { useTopologySocket } from "./hooks/useTopologySocket";
 import { layoutTopology } from "./layout/autoLayout";
 import { nodeTypes } from "./components/nodes";
@@ -12,7 +13,8 @@ import type { TopoNode } from "./types";
 const edgeTypes = { routed: RoutedEdge };
 
 export default function App() {
-  const { topology, status } = useTopologySocket();
+  const { clusters, selectedId: clusterId, select: selectCluster } = useClusters();
+  const { topology, status } = useTopologySocket(clusterId);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -52,6 +54,26 @@ export default function App() {
         }}
       >
         <div style={{ fontWeight: 700, fontSize: 15 }}>PVE Network Map</div>
+        {clusters && clusters.length > 0 && (
+          <select
+            value={clusterId ?? ""}
+            onChange={(e) => selectCluster(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--panel-border)",
+              background: "var(--app-bg)",
+              color: "var(--panel-fg)",
+              fontSize: 13,
+            }}
+          >
+            {clusters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           placeholder="Search host, bridge, VM/CT…"
           value={search}
@@ -123,7 +145,7 @@ export default function App() {
               fontSize: 14,
             }}
           >
-            Loading topology…
+            {clusters && clusters.length === 0 ? "No clusters configured" : "Loading topology…"}
           </div>
         )}
       </div>

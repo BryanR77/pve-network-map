@@ -12,7 +12,13 @@ to them, with IP info for both hosts and guests.
 - **`frontend/`** — React + React Flow app that renders the graph as an interactive,
   auto-laid-out diagram (grouped by hypervisor, one dagre layout per host so hosts never
   overlap), updating live as the backend pushes changes. Click any node for full details
-  in a side panel; search/filter by host or guest name.
+  in a side panel; search/filter by host or guest name; switch between configured
+  clusters with the selector in the header.
+
+The backend can poll multiple independent Proxmox clusters at once — each is configured
+as an entry in `clusters.yaml` and polled/broadcast separately. The frontend shows one
+cluster's graph at a time, picked from the selector; your choice is remembered across
+reloads.
 
 Topology covers, per host: physical NICs → bonds → VLAN sub-interfaces → bridges → SDN
 VNets (VLAN-zone networks, shown as virtual bridges since Proxmox attaches them to the
@@ -36,26 +42,39 @@ readable instead of looking like everything runs through everything else.
 
 ## Running it
 
-1. Copy `.env.example` to `.env` and fill in your Proxmox host and API token:
+1. Copy `clusters.yaml.example` to `clusters.yaml` and add one entry per Proxmox cluster
+   you want to monitor:
 
    ```
-   cp .env.example .env
+   cp clusters.yaml.example clusters.yaml
    ```
 
    The token only needs read access — an API token scoped to the `PVEAuditor` role is
    sufficient, since this app never writes anything to Proxmox.
 
-2. Start it:
+2. Copy `.env.example` to `.env` (defaults are usually fine as-is):
+
+   ```
+   cp .env.example .env
+   ```
+
+3. Start it:
 
    ```
    docker compose up --build
    ```
 
-3. Open `http://localhost:8080`.
+4. Open `http://localhost:8080`.
 
-Changed `.env`? Edit it, then `docker compose up -d backend` — env vars are only read
-when a container is created, so `docker restart` alone won't pick up changes; `up -d`
-detects the change and recreates just that container.
+Both files are only read once, at backend startup — neither is watched while it's
+running. To pick up changes:
+
+- Changed `clusters.yaml`? `docker compose restart backend` is enough — it's bind-mounted,
+  so the container already sees the current file, it just needs the process restarted to
+  re-read it.
+- Changed `.env`? You need `docker compose up -d backend` instead — env vars are baked
+  into the container at creation time, so a restart alone won't pick them up; `up -d`
+  detects the change and recreates just that container.
 
 ## Local (non-Docker) development
 
@@ -65,6 +84,7 @@ Backend:
 cd backend
 pip install -r requirements.txt
 export $(cat ../.env | xargs)
+export CLUSTERS_CONFIG=../clusters.yaml
 uvicorn app.main:app --reload
 ```
 
